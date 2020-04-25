@@ -29,17 +29,42 @@ def in_box(coords, box):
         return True
     return False
 
-def post_listing_to_slack(sc, listing):
+def post_listing_to_slack(slack_client, listing):
     """
     Posts the listing to slack.
     :param sc: A slack client.
     :param listing: A record of the listing.
     """
-    desc = "{0} | {1} | {2} | {3} | <{4}>".format(listing["area"], listing["price"], listing["bart_dist"], listing["name"], listing["url"])
-    sc.api_call(
-        "chat.postMessage", channel=settings.SLACK_CHANNEL, text=desc,
-        username='pybot', icon_emoji=':robot_face:'
+    desc = "APARTMENT: {0} | {1} | {2} | {3} | <{4}>".format(listing["area"], listing["price"], listing["bart_dist"], listing["name"], listing["url"])
+    slack_client.chat_postMessage(
+        channel=settings.SLACK_CHANNEL,
+        text=desc,
+        username=settings.APARTMENT_BOT_USERNAME,
+        icon_emoji=':robot_face:'
     )
+
+# Check if a message was sent to clear out the apartments
+def check_for_clear_message(slack_client, messages):
+    for message in messages:
+        if 'user' in message and message['user'] == settings.YOUR_SLACK_USER_ID:
+            if message['text'] == settings.CLEAR_APARTMENTS_TEXT:
+                return True
+    return False
+
+# Clear apartments from the slack log if they're not marked with a reaction
+def clear_apartments(slack_client, messages):
+    print("Clearing unmarked apartments, your clear message, and Slackbot's notification...")
+    # go through and delete messages that don't have reactions
+    for message in messages:
+        if 'username' in message and message['username'] == settings.APARTMENT_BOT_USERNAME:
+            if 'reactions' not in message:
+                slack_client.chat_delete(channel=settings.CHANNEL_ID, ts=message['ts'])
+        elif 'user' in message and message['user'] == settings.SLACKBOT_USERNAME:
+            if message['text'].startswith('I searched for that on our Help Center'):
+                slack_client.chat_delete(channel=settings.CHANNEL_ID, ts=message['ts'])
+        elif 'user' in message and message['user'] == settings.YOUR_SLACK_USER_ID:
+            if message['text'] == settings.CLEAR_APARTMENTS_TEXT:
+                slack_client.chat_delete(channel=settings.CHANNEL_ID, ts=message['ts'])
 
 def find_points_of_interest(geotag, location):
     """

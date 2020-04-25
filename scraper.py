@@ -4,8 +4,8 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, DateTime, Float, Boolean
 from sqlalchemy.orm import sessionmaker
 from dateutil.parser import parse
-from util import post_listing_to_slack, find_points_of_interest
-from slackclient import SlackClient
+from util import post_listing_to_slack, find_points_of_interest, check_for_clear_message, clear_apartments
+from slack import WebClient
 import time
 import settings
 
@@ -115,7 +115,7 @@ def do_scrape():
     """
 
     # Create a slack client.
-    sc = SlackClient(settings.SLACK_TOKEN)
+    slack_client = WebClient(settings.SLACK_TOKEN)
 
     # Get all the results from craigslist.
     all_results = []
@@ -124,6 +124,11 @@ def do_scrape():
 
     print("{}: Got {} results".format(time.ctime(), len(all_results)))
 
-    # Post each result to slack.
+    # Delete un-reacted old messages if user requested
+    messages = slack_client.conversations_history(channel=settings.CHANNEL_ID).get('messages')
+    if check_for_clear_message(slack_client, messages):
+        clear_apartments(slack_client, messages)
+
+    # Post each result to slack. FIXME: move this below delete thingy
     for result in all_results:
-        post_listing_to_slack(sc, result)
+        post_listing_to_slack(slack_client, result)

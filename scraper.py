@@ -117,17 +117,17 @@ def do_scrape():
     # Create a slack client.
     slack_client = WebClient(settings.SLACK_TOKEN)
 
+    # Delete un-reacted old messages if user requested
+    messages = slack_client.conversations_history(channel=settings.CHANNEL_ID).get('messages')
+    if check_for_clear_message(slack_client, messages):
+        clear_apartments(slack_client, messages)
+
     # Get all the results from craigslist.
     all_results = []
     for area in settings.AREAS:
         all_results += scrape_area(area)
 
     print("{}: Got {} results".format(time.ctime(), len(all_results)))
-
-    # Delete un-reacted old messages if user requested
-    messages = slack_client.conversations_history(channel=settings.CHANNEL_ID).get('messages')
-    if check_for_clear_message(slack_client, messages):
-        clear_apartments(slack_client, messages)
 
     # Post each result to slack. FIXME: move this below delete thingy
     for result in all_results:
